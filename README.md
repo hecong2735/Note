@@ -13,3 +13,27 @@ Run loop就和它的名字一样，是一个线程进入并运用的循环，来
 一个run loop接收来自两种不同类型sources的事件。*Input sources*传递异步事件，通常消息来自另一个线程或者来自另一个应用程序。*Timer sources*传递同步事件，发生在一个预定的时间或者重复间隔。两种source都使用一个应用程序特定的处理程序来处理到达的事件。
 
 3-1展示了run loop的概念结构以及sources的种类。Input sources传递异步事件到相应的处理程序中，并调用`runUntilDate:`方法（在线程关联的`NSRunLoop`对象中调用）退出。Timer sources传递事件到它们的处理程序例程（*handler routines*）中，但不会导致run loop退出。
+
+![3-1](https://github.com/hecong2735/ThreadingProgrammingGuide/raw/master/img/3-1.jpg)
+
+除了处理传入的sources之外，run loop也产生关于run loop行为的通知。已注册的*run-loop observers*可以获取这些通知并且用它们在进程中做一些额外的处理。可以使用Core Foundation在线程中安装run-loop observers。
+
+接下来的章节将提供关于run loop组成和它们运行模式的更多信息。也会讲述一下在处理事件的不同时期产生的通知。
+
+### Run Loop Modes
+
+一个*run loop mode*是一个被观察的input sources和timers还有被通知的run loop observers的集合。每一次你运行你的run loop，你都要指定（显示或隐式的）一个要运行的特定“mode”。在run loop运行期间，只有与指定mode相关联的sources会被监视并且允许传递事件（同样的，只有与指定mode相关联的observers会被通知run loop的进度）。与其他mode相关联的sources保留所有的新事件直到后续通过循环中合适的mode。
+
+在代码中，可以靠name来区分modes。Cocoa和Core Foundation都定义了一个默认mode和几种常用的mode，以及指定这些mode的字符串。可以通过为mode name指定一个自定义字符串来定义自定义mode。尽管你指定给自定义mode的name是随意的，但是这些mode的内容并不是。为了保证你的创建的mode可以使用，你必须给mode添加一个或多个input sources、timers或者run-loop observers。
+
+使用mode在run loop的过程中过滤不需要sources的事件。大多数时候，你只要以系统默认的“默认（*default*）”mode运行run loop。然而一个modal面板（*modal panel*）可能以“modal”mode运行。在这种mode中，只有和modal面板相关的sources会传递事件给线程。对次要线程来说，你可以使用自定义mode来阻止低优先级的sources在时间紧迫的操作期间传递事件。
+
+**Note**：mode之间的区别是建立在事件的source上而不是事件的类型上的。例如：你不能使用mode来只匹配mouse-down事件或者只匹配键盘事件。你可以使用mode来监听不同的端口集合，临时暂停定时器，或者以其他方式改变source和当前正在监视的run loop observers。
+
+列表3-1列出了Cocoa和Core Foundation定义的几种标准mode以及他们的描述。name列列出了你在实际使用时各个mode的常数。
+
+**列表3-1** 预定义的run loop modes
+
+| Mode    | Name                                     | Description                              |
+| ------- | :--------------------------------------- | ---------------------------------------- |
+| Default | NSDefaultRunLoopMode（Cocoa）<br>kCFRunLoopDefaultMode（Core Foundation | 默认mode是大多数操作使用的mode。大多情况下，你应该使用这个mode来启动run loop并配置你的input sources |
