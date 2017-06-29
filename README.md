@@ -36,8 +36,8 @@ Run loop就和它的名字一样，是一个线程进入并运用的循环，来
 
 | Mode           | Name                                     | Description                              |
 | -------------- | :--------------------------------------- | ---------------------------------------- |
-| Default        | NSDefaultRunLoopMode（Cocoa）<br>kCFRunLoopDefaultMode（Core Foundation | 默认mode是大多数操作使用的mode。大多情况下，你应该使用这个mode来启动run loop并配置你的input sources |
+| Default        | NSDefaultRunLoopMode（Cocoa）<br>kCFRunLoopDefaultMode<br>（Core Foundation） | 默认mode是大多数操作使用的mode。大多情况下，你应该使用这个mode来启动run loop并配置你的input sources |
 | Connection     | NSConnectionReplyMode（Cocoa）             | Cocoa使用这种mode与NSConnection对象一起监视回复。你自己会很少使用到这个mode。 |
 | Modal          | NSModalPanelRunLoopMode（Cocoa）           | Cocoa使用这种mode来分辨modal面板想要的事件。            |
 | Event tracking | NSEventTrackingRunLoopMode（Cocoa）        | Cocoa使用这种mode在mouse-dragging循环和其他类型的用户交互循环限制传入事件 |
-| Common modes   | NSRunLoopCommonModes（Cocoa）<br>kCFRunLoopCommonModes（CoreFoundation） | 这是一个通常使用mode的配置集合。与这个mode关联的input source也与这个集合中每一个mode相关联。对Cocoa应用程序来说，这个集合包含了default、modal和默认的事件跟踪mode。Core Foundation仅包括初始的默认mode。你可以通过CFRunLoopAddCommonMode函数来添加自定义mode。 |
+| Common modes   | NSRunLoopCommonModes（Cocoa）<br>kCFRunLoopCommonModes<br>（CoreFoundation） | 这是一个通常使用mode的配置集合。与这个mode关联的input source也与这个集合中每一个mode相关联。对Cocoa应用程序来说，这个集合包含了default、modal和默认的事件跟踪mode。Core Foundation仅包括初始的默认mode。你可以通过CFRunLoopAddCommonMode函数来添加自定义mode。 |
