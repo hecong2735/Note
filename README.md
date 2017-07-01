@@ -78,10 +78,10 @@ Cocoa和Core Foundation提供内置端口相关对象和函数来创建基于端
 
 | Method                                   | Description                              |
 | ---------------------------------------- | ---------------------------------------- |
-| `performSelectorOnMainThread:withObject:waitUntilDone:`<br>`performSelectorOnMainThread:withObject:waitUntilDone:modes:` | 在应用程序的主线程的下个run loop循环中执行指<br>定的selector。这些方法使你可以选择阻止当前线程，<br>直到执行selector。 |
-| `performSelector:onThread:withObject:waitUntilDone:`<br>`performSelector:onThread:withObject:waitUntilDone:modes:` | 在拥有NSThread对象的任何线程上执行指定的<br>selector。这些方法使你可以选择阻止当前的线程直到<br>执行完selector。 |
-| `performSelector:withObject:afterDelay:`<br>`performSelector:withObject:afterDelay:inModes:` | 经过可选择的一段延迟后在当前线程的下个run<br>loop循环中执行指定的selector。因为这要等到下个<br>run loop循环执行selector， 这些方法提供了从当前执行代码的<br>自动微型延迟。多个排队的selector会按照队列顺序<br>逐个执行。 |
-| `cancelPreviousPerformRequestsWithTarget:`<br>`cancelPreviousPerformRequestsWithTarget:selector:object:` | 用`performSelector:withObject:afterDelay`或者<br>`performSelector:withObject:afterDelay:inModes:`方法取消一个送往当前线程的信息。 |
+| `performSelectorOnMainThread:withObject:waitUntilDone:`<br>`performSelectorOnMainThread:withObject:waitUntilDone:modes:` | 在应用程序的主线程的下个run loop循环中执行指定的selector。这些方法使你可以选择阻止当前线程，直到执行selector。 |
+| `performSelector:onThread:withObject:waitUntilDone:`<br>`performSelector:onThread:withObject:waitUntilDone:modes:` | 在拥有NSThread对象的任何线程上执行指定的selector。这些方法使你可以选择阻止当前的线程直到执行完selector。 |
+| `performSelector:withObject:afterDelay:`<br>`performSelector:withObject:afterDelay:inModes:` | 经过可选择的一段延迟后在当前线程的下个run loop循环中执行指定的selector。因为这要等到下个run loop循环执行selector， 这些方法提供了从当前执行代码的自动微型延迟。多个排队的selector会按照队列顺序逐个执行。 |
+| `cancelPreviousPerformRequestsWithTarget:`<br>`cancelPreviousPerformRequestsWithTarget:selector:object:` | 用`performSelector:withObject:afterDelay`或者`performSelector:withObject:afterDelay:inModes:`方法取消一个送往当前线程的信息。 |
 
 
 
