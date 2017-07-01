@@ -41,3 +41,47 @@ Run loop就和它的名字一样，是一个线程进入并运用的循环，来
 | Modal          | NSModalPanelRunLoopMode（Cocoa）           | Cocoa使用这种mode来分辨modal面板想要的事件。            |
 | Event tracking | NSEventTrackingRunLoopMode（Cocoa）        | Cocoa使用这种mode在mouse-dragging循环和其他类型的用户交互循环限制传入事件 |
 | Common modes   | NSRunLoopCommonModes（Cocoa）<br>kCFRunLoopCommonModes<br>（CoreFoundation） | 这是一个通常使用mode的配置集合。与这个mode关联的input source也与这个集合中每一个mode相关联。对Cocoa应用程序来说，这个集合包含了default、modal和默认的事件跟踪mode。Core Foundation仅包括初始的默认mode。你可以通过CFRunLoopAddCommonMode函数来添加自定义mode。 |
+
+
+
+### Input Sources
+
+Input sources异步的将事件传递给线程，事件的source依赖于input source的类型，input source大体上分为两类。基于端口的input source监视应用程序的Mach ports。自定义input source监视事件的自定义sources。就run loop而言，它并不在乎一个input source是基于端口的还是自定义的。系统通常会将两种类型的input sources都实现。两种source之间的唯一区别就是它们发出信号的方式。基于端口的source由系统核心自动的发出信号，而自行一的source必须由另一个线程手动的发出信号。
+
+创建一个input source时，将它分配给run loop中一个或多个mode。Mode会影响在任何给定时刻哪个input source会被监视。大多数时间会以默认mode运行run loop，但也可以指定特定的自定义mode。如果一个input mode不在当前被监视的mode中，它产生的任何事件都会被保留直到run loop在正确的mode中运行。
+
+下面的章节将介绍一些input source。
+
+#### 基于端口的source
+
+Cocoa和Core Foundation提供内置端口相关对象和函数来创建基于端口的input source。例如在Cocoa中，你永远不用直接的创建一个input source。你只需创建一port对象并且使用NSPort方法将port添加到run loop中。这个port对象会完成所需要input source的创建和配置。
+
+在Core Foundation中，你必须手动的创建port和它的run loop source。在这两种情况下，使用与port不透明类型（*opaque type*）（CFMachPortRef， CFMessagePortRef或者CFSocketRef）来创建适当的对象。
+
+#### 自定义input source
+
+为了创建一个自定义input source，你必须使用在Core Foundation中与CFRunLoopSourceRef不透明类型相关的方法。可以使用几个回调方法来配置自定义input source。Core Foundation在不同的时间点调用这些方法来配置source，处理即将到来的事件以及在source从run loop中移除时拆除它。
+
+除了当事件到来时定义自定义source行为之外，你也必须定义事件传递机制。source的这部分运行在一个单独的线程上，负责向input source提供其数据，并且在数据准备好进行处理时发出信号。事件传递机制取决于你但是不必太过复杂。
+
+#### Cocoa Perform Selector Sources
+
+除了基于端口的source之外，Cocoa还定义了一种自定义input source使你可以在任何线程上执行方法（selector）。如同基于端口的source一样，perform selector需要在目标线程上序列化，来缓解在一个线程上运行多种方法可能发生的许多同步问题。和基于端口的source不同，一个perform selector source在它执行完selector后将自己从run loop中移除。
+
+**Note**：在OS X v10.5之前，perform selector source大多用来给主线程发送信息，但是在OS X v10.5之后和iOS中，你可以用它们给任何线程发送信息。
+
+当在另一个线程上执行selector时，目标线程必须有一个活跃的run loop。对于你自己创建的线程而言，这意味着你需要等到代码显式的启动run loop。因为主线程会启动它自己的run loop，但你也可以在应用程序调用`applicationDidFinishLaunching：`委托方法时立即开始在该线程上发出调用。
+
+表3-2列出了NSObject中可以在其他线程执行selector的方法。因为这些方法是在NSObject中声明的，你能在可以进入Objectiv-C对象的任何线程中使用，包括POSIX线程。这些方法实际中不会创建一个新的线程来执行selector。
+
+**表3-2** 可以在其他线程中执行的selector
+
+| Method                                   | Description                              |
+| ---------------------------------------- | ---------------------------------------- |
+| `performSelectorOnMainThread:withObject:waitUntilDone:`<br>`performSelectorOnMainThread:withObject:waitUntilDone:modes:` | 在应用程序的主线程的下个run loop循环中执行指定的selector。这些方法使你可以选择阻止当前线程，直到执行selector。 |
+| `performSelector:onThread:withObject:waitUntilDone:`<br>`performSelector:onThread:withObject:waitUntilDone:modes:` | 在拥有NSThread对象的任何线程上执行指定的selector。这些方法使你可以选择阻止当前的线程知道执行完selector。 |
+| `performSelector:withObject:afterDelay:`<br>`performSelector:withObject:afterDelay:inModes:` | 经过可选择的一段延迟后在当前线程的下个run loop循环中执行指定的selector。因为这要等到下个run loop循环执行selector， 这些方法提供了从当前执行代码的自动微型延迟。多个排队的selector会按照队列顺序逐个执行。 |
+| `cancelPreviousPerformRequestsWithTarget:`<br>`cancelPreviousPerformRequestsWithTarget:selector:object:` | 用`performSelector:withObject:afterDelay`或者`performSelector:withObject:afterDelay:inModes:`方法取消一个送往当前线程的信息。 |
+
+
+
