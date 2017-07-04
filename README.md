@@ -85,3 +85,171 @@ Cocoa和Core Foundation提供内置端口相关对象和函数来创建基于端
 
 
 
+#### Timer Sources
+
+Timer Sources在预定的时间内将事件同步传递给线程。Timer是线程通知自己处理事件的方式。例如在用户连续的按键之间经过一段时间，就可以使用timer来启动自动搜索。延迟时间的运用让用户能在开始搜索之前输入尽可能多的搜索字段。
+
+尽管timer是基于时间的通知，但是它并不是实时机制。和input source一样，timer和run loop中的指定mode相关联。如果timer不在当前run loop监视的mode中，它并不会起作用直到你在一个支持timer的mode中运行。类似的，如果在run loop处于执行处理例程的中间timer触发，则timer需要等待直到下一次通过run loop来调用处理例程。如果run loop没有运行，那么timer也不会触发。
+
+你可以为产生的事件单次或重复地配置timer。一个重复的timer会根据预定的触发时间而不是实际的触发时间自动的重新触发。例如一个timer安排在一个特定的时间触发并且过后的每5秒触发一次，那么预定的触发时间总是会在初始时间的5秒间隔上，即使实际上的触发时间延迟了。如果触发时间延迟太久导致timer错过了一次或多次的预定触发时间，那么timer只会为错过的这段时间触发一次。在为错过的时间触发完后，timer会在下一个预定的触发时间重新触发。
+
+#### Run Loop Observers
+
+和在一个合适的同步或异步事件发生时触发的source相反，run loop observers在run loop执行期间的特殊地点触发。你可以使用run loop observers来为你的线程处理事件做准备，或者做线程休眠之前的准备工作。你可以在run loop中与下面的事件关联run loop observers：
+
+- run loop的入口。
+- 当run loop即将处理一个timer。
+- 当run loop即将处理一个input source。
+- 当run loop即将休眠。
+- 当run loop被唤醒，但是在它处理唤醒它的事件之前。
+- 退出run loop时。
+
+你可以使用Core Foundation将run loop observers加入到应用程序中。你可以创造`CFRunLoopObserverRef`不透明类型的一个新的实例来创建run loop observer。这种类型会跟踪你自定义的回调函数和塔关注的活动。
+
+和timer一样，run-loop observers可以单次或重复使用。一个一次性的observers在触发后会将自己从run loop中移除，而重复的observers仍然在这个run loop中。你可以在创建的时候指定run loop运行一次还是多次。
+
+#### Run Loop的事件顺序
+
+每当你运行线程的run loop，它都会处理即将发生的事件并且为依附的observers产生通知。它处理事件的顺序如下：
+
+1. 通知observers run loop已经进入。
+2. 通知observers所有准备触发的timer。
+3. 通知observers所有准备出发的非基于端口的input source。
+4. 触发所有非基于端口的input source。
+5. 如果一个基于端口的input source等待触发，那么立即执行事件并跳转到步骤9。
+6. 通知observers线程准备休眠。
+7. 使线程休眠知道如下的事件发生：
+   - 一个基于端口的input source事件到达。
+   - 一个timer触发。
+   - run loop到达过期时间。
+   - run loop被显式的唤醒。
+8. 通知observers线程刚刚被唤醒。
+9. 处理即将到来的事件。
+   - 如果一个用户定义的timer被触发，处理timer事件并重启循环。跳到步骤2。
+   - 如果一个input source被触发，传递事件。
+   - 如果run loop被显式的唤醒并且没有超时，重启循环。跳到步骤2。
+10. 通知observers run loop已经退出。
+
+因为observer给timer和input source的通知在这些事件发生之前就已经被传递了，所以在通知的时间和事件的真实发生时间之间可能会有一段间隔。如果事件之间的时间是关键的，可以使用休眠和从休眠中唤醒通知来帮助你将实际事件之间的时间关联起来。
+
+因为在运行run loop的时候会传递timer和其他周期性的事件，规避该循环会影响这些事件的传递。典型的例子就是无论何时当你通过进入一个循环并重复的从应用程序获取事件来实现一个鼠标跟踪例程。因为你的代码是直接抓取事件而不是让应用程序正常的发送事件，活动的timer将会失效直到鼠标跟踪例程退出并且返回到应用程序的控制中。
+
+一个run loop可以用过run loop对象显式的唤醒。其他事件也可以导致run loop被唤醒。例如添加一个非基于端口的input source会唤醒run loop这样这个input source才会立即被处理而不是等到其他的事件发生时。
+
+## 何时使用Run Loop
+
+只要创建次要线程的时候才需要显式的运行run loop。对主线程而言，run loop是其基础的重要组成部分。app框架提供了运行主程序循环的代码并且会自动开始该循环。iOS中UIApplication（OS X的NSApplication）的`run`方法会启动应用程序的主循环作为正常启动步骤的一部分。如果你使用Xcode的模板工程来创建应用程序，你不应该显式的调用这个例程。
+
+对于次要线程而言，你需要决定run loop对它是否是必要的。如果是，你需要自己配置并启动它。没有必要在所有的情况下都启动run loop。例如你在使用线程运行一些长期和预先安排的任务，你可能要避免使用run loop。Run loop是给你想要更多互动的线程准备的，比如你计划做如下的事情时，你需要启动run loop：
+
+- 使用port或者自定义的input source来和其他线程交流。
+- 在线程中使用timer。
+- 在Cocoa应用程序中使用任何`performSelector...`方法。
+- 保持线程执行周期任务。
+
+如果你确实要使用run loop，那么建立和配置很简单。和所有的多线程编程一样，你应该有一个次要线程退出的合适时机。退出而不是强制终止结束总是能更好的关闭一个线程。
+
+## 使用Run Loop对象
+
+一个run loop对象提供了添加input source、timers和run-loop observers的主要接口并且运行它。每个线程都有一个run loop对象与之相关联。在Cocoa中，这个对象是NSRunLoop的实例。在低等应用程序（*low-level application*）中，它是指向CFRunLoopRef不透明类型的指针。
+
+### 获取一个Run Loop对象
+
+给当前线程获取run loop，你可以按下面的方式：
+
+- 在Cocoa应用程序中，使用NSRunLoop的`currentRunLoop`方法来取回一个NSRunLoop对象。
+- 使用CFRunLoopGetCurrent函数。
+
+尽管这不是免费的桥接类型，你可以从NSRunLoop对象中获取一个CFRunLoopRef不透明对象。NSRunLoop类定义了一个返回CFRunLoopRef类型的getCFRunLoop方法使你可以通过Core Foundation例程。因为这两种对象都是关联的同一个run loop，你可以随意的使用NSRunLoop对象或者CFRunLoopRef不透明类型。
+
+### 配置Run Loop
+
+在次要线程运行run loop之前，你必须添加至少一个input source或者timer。如果一个run loop没有任何source监视，在你试图运行的时候，就会立即退出。
+
+除了安装source之外，你还可以安装run loop observers并使用它们来检测run loop运行的不同阶段。要安装run loop observers，你可以创建一个CGRunLoopObservrRef不透明对象，然后使用CFRunLoopAddObserver方法来添加到run loop中。Run loop observers必须使用Core Foundation创建，即使是在Cocoa应用程序中。
+
+清单3-1展示将一个run loop observers添加到一个线程的run loop中的主要例程。这个例子的目的是给你展示如何创建一个run loop observer，因此这个代码只需简单的设置一个run loop observer来监视所有的run loop活动。在处理timer请求时，基本的处理例程（未显示）仅仅记录run loop活动。
+
+**清单3-1** 创建run loop observer
+
+```
+- (void)threadMain
+{
+    // 应用程序使用垃圾回收，所以没有必要使用autorelease pool
+    NSRunLoop* myRunLoop = [NSRunLoop currentRunLoop];
+ 
+    // 创建一个run loop observer并把它添加到run loop中
+    CFRunLoopObserverContext  context = {0, self, NULL, NULL, NULL};
+    CFRunLoopObserverRef    observer = CFRunLoopObserverCreate(kCFAllocatorDefault,
+            kCFRunLoopAllActivities, YES, 0, &myRunLoopObserver, &context);
+ 
+    if (observer)
+    {
+        CFRunLoopRef    cfLoop = [myRunLoop getCFRunLoop];
+        CFRunLoopAddObserver(cfLoop, observer, kCFRunLoopDefaultMode);
+    }
+ 
+    // 创建并安排timer
+    [NSTimer scheduledTimerWithTimeInterval:0.1 target:self
+                selector:@selector(doFireTimer:) userInfo:nil repeats:YES];
+ 
+    NSInteger    loopCount = 10;
+    do
+    {
+        // 运行run loop10次以触发timer
+        [myRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:1]];
+        loopCount--;
+    }
+    while (loopCount);
+}
+```
+
+当为一个长期运行的线程配置run loop时，最好添加至少一个input source来接收信息。尽管你可以仅用附加一个timer来进入run loop，一旦timer触发，它通常会被销毁，这回导致run loop退出。附加一个重复的timer可以使run loop运行更长的一段时间，但是需要周期性的触发timer以唤醒线程，这实际上是另一种形式的轮询（*polling*）。相反的，一个input source会等待一个事件的发生，使你的线程休眠。
+
+### 启动Run Loop
+
+只有在次要线程中才有必要启动run loop。一个run loop必须至少含有一个input source或者timer来监控。如果一个都没有添加，run loop会立即退出。
+
+有如下几种方法可以启动run loop：
+
+- 无条件的（*unconditionally*）。
+- 设定时限。
+- 在特定的mode中。
+
+无条件的进入run loop是最简单的选择，但是也是最不可取的。无条件的运行run loop会使线程进入一个永久循环中，这使无法对循环机进行控制。你可以添加或移除input sources和timers，但是停止run loop的唯一方法是终止它。并且也没有办法在自定义的mode中运行run loop。
+
+和无条件的运行run loop不同，运行run loop的时候最好添加一个时限。当你添加了一个时限，run loop会运行到事件到达或者时限到期。如果一个事件到达，这个事件会发送给处理程序处理然后run loop退出。你的代码可以重新启动run loop并且解决下一个事件。如果是到期了，你可以重启run loop或者使用时间来进行内务管理（*housekeeping*）。
+
+除了添加时限之外，你还可以使用特定的mode来运行run loop。mode和时限不是互斥的并且都可以用来启动run loop。mode限制了传递事件给run loop的source类型。详情可以查看Run Loop Modes。
+
+清单3-2展示了线程主要整体例程的框架。这个例子的关键部分展示了run loop的基本结构。本质上是通过添加input source和timer到run loop中然后重复调用例程中的一个来启动run loop。每次run loop例程返回，都检查一遍是否有满足退出线程的条件。这个例子使用Core Foundation run loop例程，这样就能检查返回结果并且查明run loop为何退出。如果你在使用Cocoa并且你不需要检查返回结果，你也可以在类似的管理器使用NSRunLoop类中的方法来运行run loop。（调用 NSRunLoop类中方法的run loop例子可以查看清单3-14）
+
+**清单 3-2** 运行一个run loop
+
+```
+- (void)skeletonThreadMain
+{
+    // 创建一个autorelease pool，如果没有使用垃圾回收的话。
+    BOOL done = NO;
+ 
+    // 添加source或timer和一些其他操作
+ 
+    do
+    {
+        // Start the run loop but return after each source is handled.
+        SInt32    result = CFRunLoopRunInMode(kCFRunLoopDefaultMode, 10, YES);
+ 
+        // 如果一个source显式的停止了run loop，或者
+        // 没有source和timers，继续并退出
+        if ((result == kCFRunLoopRunStopped) || (result == kCFRunLoopRunFinished))
+            done = YES;
+ 
+        // 这里检查其他的退出条件并设置done变量的值。
+    }
+    while (!done);
+ 
+    // 这里是清楚代码，保证释放了所有分配的autorelease pool
+}
+```
+
+可以递归的运行run loop。换句话说，你可以调用CFRunLoopRun，CFRunLoopInMode或者其他的NSRunLoop方法在input source或者timer的处理例程内启动run loop。当你这么做的时候，你可以使用任何mode来运行嵌套的run loop，包括外部run loop运行的mode。
